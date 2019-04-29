@@ -1,6 +1,6 @@
-# Pitch Share
+# Blogz
 
-#### An application for viewing and posting pitches
+#### An application for viewing and posting blogs
 
 ## Author
 
@@ -8,11 +8,11 @@
 
 ## Description
 
-An application where users will submit their one minute pitches and other users will vote on them and leave comments to give their feedback on them.A user must first register an account, and on registration should receive a welcome email. Once registered and logged in,then he or she can post a pitch and comment on other pitches.
+A personal blogging website where you can create and share your opinions and other users can read and comment on them. A user must first register an account, and on registration should receive a welcome email. Once registered and logged in,then he or she can post a blog and comment on other blogs.
 
 ## Project's set up instructions
 
-To start using this news-highlight app, use the following commands:
+To start using this blogz app, use the following commands:
 
 - `git clone` ~ This will automatically clone the repository to your local machine.
 
@@ -78,15 +78,15 @@ To start using this news-highlight app, use the following commands:
 
 |Behaviour|Input Example|Output Example|
 |---------|-------------|--------------|
-|See Pitches|Open a pitch|View the pitch|
+|See blogs|Open a blog|View the blog|
 |Create an account|Account details|Account created|
 |Log in|Account details|Logged in|
-|Comment on a pitch|Write a comment|Comment is posted|
-|Submit a pitch|Write a pitch|Pitch is submitted|
+|Comment on a blog|Write a comment|Comment is posted|
+|Submit a blog|Create a blog|Blog is submitted|
 
 ## Live link to the application's website in heroku
 
-https://pitch-share.herokuapp.com/
+
 
 ## Contacts
 
