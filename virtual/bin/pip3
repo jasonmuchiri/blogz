@@ -1,4 +1,4 @@
-#!/home/jason/pitch-share/virtual/bin/python
+#!/home/jason/my-flask-apps/blogz/virtual/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

@@ -1,106 +1,90 @@
-
-from flask import render_template, request, redirect, url_for, abort, flash
+from flask import render_template, request, redirect, url_for, abort, flash, session
 from . import main
-from ..models import User, Pitch, Comments
+from ..models import User, Post, Comments
+from ..date_pipe import date_calc
 from flask_login import login_required, current_user
 from .. import db
-import markdown2
+from .forms import PostForm, CommentForm
 from datetime import datetime
-from .forms import PitchForm, CommentForm
-from ..pitches import get_pitch
+from functools import wraps
+from ..email import updates_mail_message
+
+def requires_admin(access_level):
+  def decorator(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+      if not session.get('username'):
+        return redirect(url_for('auth.login'))
+      user = User.find_by_username(session['username'])
+      if not user.allowed(access_level):
+        return redirect(url_for('main.index', message='You do not have the required permissions to access that'))
+      return f(*args, **kwargs)
+    return decorated_function
+  return decorator
 
 @main.route('/')
-
+@login_required
 def index():
-  pitches=Pitch.query.all()
-  title = 'Welcome to Pitches'
-  return render_template('index.html', title=title, pitches=pitches)
+  posts=Post.query.all()
+  title='Welcome to Blogz'
+  return render_template('index.html', title=title, posts=posts)
 
-@main.route('/profile/<uname>/<id>')
-@login_required
-def profile(id, uname):
-  user = User.query.filter_by(username = uname)
-  pitches = Pitch.query.filter_by(id=id)
-  message='You don\'t have any pitches to show you failure!'
-  if pitches is not 0:
-    message='You\'ve got a few to show'
-  if user is None:
-    abort(404)
-  return render_template('profile/profile.html', user=user, pitches=pitches, message=message)
+@main.route('/profile/user/<uname>/<id>')
+def profile_user(id, uname):
+  user = User.query.filter_by(username = uname).first()
+  memberFor=date_calc(user.joined)
+  return render_template('profile/profile.html', memberFor=memberFor)
 
-@main.route('/writing-pitch', methods=['GET', 'POST'])
+@main.route('/profile/admin/<uname>/<id>')
+def profile_admin(id, uname):
+  nō_users=User.query.all()
+  nō_posts=Post.query.all()
+  return render_template('profile/admin.html', users=nō_users, posts=nō_posts)
+
+@main.route('/writing-posts', methods=['GET', 'POST'])
 @login_required
-def write_pitch():
-  form = PitchForm()
+def write_post():
+  users=User.query.all()
+  form = PostForm()
   if form.validate_on_submit():
-    pitch = Pitch(title=form.title.data, body=form.body.data, category=form.category.data)
+    post = Post(title=form.title.data, body=form.body.data)
 
-    db.session.add(pitch)
-    db.session.commit()
+    Post.save_post(post)
     return redirect(url_for('main.index'))
 
-  title = 'New Pitch'
-  return render_template('new_pitch.html', pitch=form, title=title)
+    update_mail_message('Update from Blogz', 'email/update_email', users.email)
 
-@main.route('/comment', methods=['GET', 'POST'])
-@login_required
-def write_comment():
-  form = CommentForm()
+  title='New Blog Post'
+  return render_template('new_post.html', post=form, title=title)
+
+@main.route('/view_comments/<id>')
+def view_comments(id):
+  user = User.query.filter_by(id=id).first()
+  post = Post.query.filter_by(id=id).first()
+  comments = Post.get_comments(post)
+
+  return render_template('comments.html', comments=comments, post=post, user=user)
+
+@main.route('/write-comment/<id>', methods=['GET', 'POST'])
+def write_comments(id):
+  form=CommentForm()
+  post = Post.query.filter_by(id=id).first()
+  user = User.query.filter_by(id=id).first()
   if form.validate_on_submit():
-    comment = Comments(comment=form.comment.data)
+    comment = Comments(comment=form.comment.data, user=user, post_comments=post)
     comment.save_comment()
 
     return redirect(url_for('main.index'))
 
-  return render_template('comment.html', comment=form)
+  return render_template('comment.html', comment=form, user=user, post=post)
 
-@main.route('/business')
-def get_business():
-  pitches = Pitch.query.filter_by(category='bus')
-  title='Pitches Business Edition'
-  message='There are no pitches in the Business section. Go back to home to continue viewing.'
-  if pitches is not 0:
-    message='Home of Business pitches'
-  return render_template('index.html', pitches=pitches, title=title, message=message)
-
-@main.route('/sports')
-def get_sports():
-  pitches = Pitch.query.filter_by(category='spr')
-  title='Pitches Sports Edition'
-  message='There are no pitches in the Sports section. Go back to home to continue viewing.'
-  if pitches is not 0:
-    message='Home of Sports pitches'
-  return render_template('index.html', pitches=pitches, title=title, message=message)
-
-@main.route('/technology')
-def get_technology():
-  pitches = Pitch.query.filter_by(category='tech')
-  title='Pitches Tech Edition'
-  message='There are no pitches in the Tech section. Go back home to continue viewing.'
-  if pitches is not 0:
-    message='Home of Tech pitches'
-  return render_template('index.html', pitches=pitches, title=title, message=message)
-
-@main.route('/art')
-def get_art():
-  pitches = Pitch.query.filter_by(category='art')
-  title='Pitches Art Edition'
-  message='There are no pitches in the Art section. Go back to home to continue viewing'
-  if pitches is not 0:
-    message='Home of Artistic pitches'
-  return render_template('index.html', pitches=pitches, title=title, message=message)
-
-@main.route('/view-comments/<id>')
-def view_comments(id):
-  pitch = Pitch.query.filter_by(id=id)
-  comments = Comments.query.filter_by(id=id)
-  message='This pathetic pitch has no comments'
-  if comments is not 0:
-    message=f'You\'re now viewing the comments. Click home to continue browsing pitches'
-  return render_template('comments.html', message=message, comments=comments, pitch=pitch)
-
-@main.route('/delete/<id>')
-@login_required
-def pitch_delete(id):
-  pitch = Pitch.query.filter_by(id=id)
-  return pitch.delete_pitch()
+@main.route('/delete-comments/<id>', methods=['GET', 'POST'])
+def delete_comments(id):
+  post = Post.query.filter_by(id=id).first()
+  comment = Post.query.filter_by(post=id).first()
+  user = User.query.filter_by(id=id).first()
+  
+  if user.access>0:
+    return delete_comments(comment)
+  
+  return render_template('comment.html', comment=comments, post=post, user=user)
